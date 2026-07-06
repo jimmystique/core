@@ -552,6 +552,46 @@ install(
 )
 
 #
+# Unit test for InstanceQueue
+#
+add_executable(
+  instance_queue_test
+  instance_queue_test.cc
+)
+
+set_target_properties(
+  instance_queue_test
+  PROPERTIES
+    SKIP_BUILD_RPATH TRUE
+    BUILD_WITH_INSTALL_RPATH TRUE
+    INSTALL_RPATH_USE_LINK_PATH FALSE
+    INSTALL_RPATH ""
+)
+
+target_include_directories(
+  instance_queue_test
+  PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/..
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../include
+    ${GTEST_INCLUDE_DIRS}
+)
+
+target_link_libraries(
+  instance_queue_test
+  PRIVATE
+    triton-common-error   # from repo-common
+    triton-common-logging # from repo-common
+    triton-core
+    GTest::gtest
+    GTest::gtest_main
+)
+
+install(
+  TARGETS instance_queue_test
+  RUNTIME DESTINATION bin
+)
+
+#
 # Backend Output Detail Unittest
 #
 add_executable(
