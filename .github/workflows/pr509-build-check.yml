@@ -12,7 +12,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             git python3 python3-pip build-essential pkg-config \
-            libboost-all-dev rapidjson-dev libssl-dev zlib1g-dev
+            libboost-all-dev rapidjson-dev libre2-dev libssl-dev zlib1g-dev
           python3 -m pip install cmake ninja
       - name: Configure CPU-only Triton core
         run: |
