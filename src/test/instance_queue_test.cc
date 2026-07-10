@@ -26,6 +26,7 @@
 
 #include "instance_queue.h"
 
+#include <iterator>
 #include <memory>
 #include <vector>
 
@@ -33,6 +34,64 @@
 #include "payload.h"
 
 namespace triton { namespace core {
+
+// Keep this unit test scoped to InstanceQueue. The production Payload
+// implementation pulls in backend/scheduler symbols that are unrelated to the
+// queue accounting exercised here, so provide the minimal behavior Dequeue uses.
+Payload::Payload()
+    : op_type_(Operation::INFER_RUN),
+      requests_(std::vector<std::unique_ptr<InferenceRequest>>()),
+      OnCallback_([]() {}), instance_(nullptr), state_(State::UNINITIALIZED),
+      batcher_start_ns_(0), saturated_(false), user_pointer_(nullptr)
+{
+  exec_mu_.reset(new std::mutex());
+}
+
+void
+Payload::Reset(const Operation op_type, TritonModelInstance* instance)
+{
+  op_type_ = op_type;
+  requests_.clear();
+  OnCallback_ = []() {};
+  release_callbacks_.clear();
+  instance_ = instance;
+  state_ = State::UNINITIALIZED;
+  status_.reset(new std::promise<Status>());
+  required_equal_inputs_ = RequiredEqualInputs();
+  batcher_start_ns_ = 0;
+  saturated_ = false;
+  user_pointer_ = nullptr;
+}
+
+const Status&
+Payload::MergePayload(std::shared_ptr<Payload>& payload)
+{
+  static const Status success(Status::Code::SUCCESS);
+  requests_.insert(
+      requests_.end(), std::make_move_iterator(payload->Requests().begin()),
+      std::make_move_iterator(payload->Requests().end()));
+  payload->Callback();
+  return success;
+}
+
+size_t
+Payload::BatchSize()
+{
+  return requests_.size();
+}
+
+void
+Payload::Callback()
+{
+  OnCallback_();
+}
+
+void
+Payload::SetState(Payload::State state)
+{
+  state_ = state;
+}
+
 namespace {
 
 // Builds an empty INFER_RUN payload. Empty payloads are sufficient here: they
@@ -60,8 +119,8 @@ MakeInferPayload()
 // slow 500 ms poll fallback (the dispatch gates require
 // WaitingConsumerCount() > 0), degrading throughput.
 //
-// Dequeue must credit back one count per merged payload so the counter returns
-// to the idle-instance count after every round.
+// With the fix (Dequeue credits back one count per merged payload) the counter
+// returns to the idle-instance count after every round.
 TEST(InstanceQueueTest, ConsumerCountStableAcrossMerges)
 {
   constexpr size_t kMaxBatchSize = 8;
@@ -103,9 +162,8 @@ TEST(InstanceQueueTest, ConsumerCountStableAcrossMerges)
   }
 
   // Once all payloads have been consumed and every consumer is idle again, the
-  // waiting-consumer count must equal the true idle-instance count. If merged
-  // payloads are not credited back, it ends deeply negative
-  // (kNumInstances - kRounds * (kBurst - 1)).
+  // waiting-consumer count must equal the true idle-instance count. Without the
+  // fix it ends deeply negative (kNumInstances - kRounds * (kBurst - 1)).
   EXPECT_EQ(queue.WaitingConsumerCount(), kNumInstances)
       << "waiting_consumer_count_ drifted across merges; the dynamic batcher "
          "would eventually be throttled onto its slow poll fallback";

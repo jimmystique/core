@@ -557,6 +557,7 @@ install(
 add_executable(
   instance_queue_test
   instance_queue_test.cc
+  ../instance_queue.cc
 )
 
 set_target_properties(
@@ -583,7 +584,6 @@ target_link_libraries(
     triton-common-logging      # from repo-common
     triton-common-model-config # from repo-common
     proto-library              # from repo-common
-    triton-core
     GTest::gtest
     GTest::gtest_main
     protobuf::libprotobuf
