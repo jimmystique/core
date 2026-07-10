@@ -1,0 +1,33 @@
+name: PR 509 build check
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  instance-queue-test:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git python3 python3-pip build-essential pkg-config \
+            libboost-all-dev rapidjson-dev libssl-dev zlib1g-dev
+          python3 -m pip install cmake ninja
+      - name: Configure CPU-only Triton core
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_INSTALL_PREFIX:PATH="$PWD/build/install" \
+            -DTRITON_CORE_HEADERS_ONLY=OFF \
+            -DTRITON_COMMON_REPO_TAG=main \
+            -DTRITON_THIRD_PARTY_REPO_TAG=main \
+            -DTRITON_ENABLE_GPU=OFF \
+            -DTRITON_ENABLE_METRICS=OFF \
+            -DTRITON_ENABLE_METRICS_GPU=OFF \
+            -DTRITON_ENABLE_METRICS_CPU=OFF
+      - name: Build core external project
+        run: cmake --build build --target triton-core -j"$(nproc)"
+      - name: Build instance queue test
+        run: cmake --build build/triton-core --target instance_queue_test -j"$(nproc)"
+      - name: Run instance queue test
+        run: ./build/triton-core/test/instance_queue_test
