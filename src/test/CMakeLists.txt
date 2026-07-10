@@ -579,11 +579,14 @@ target_include_directories(
 target_link_libraries(
   instance_queue_test
   PRIVATE
-    triton-common-error   # from repo-common
-    triton-common-logging # from repo-common
+    triton-common-error        # from repo-common
+    triton-common-logging      # from repo-common
+    triton-common-model-config # from repo-common
+    proto-library              # from repo-common
     triton-core
     GTest::gtest
     GTest::gtest_main
+    protobuf::libprotobuf
 )
 
 install(
